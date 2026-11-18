@@ -28,6 +28,8 @@ Read `README.md` (north star, pillars, roadmap) and the top entry of `NOTES.md` 
 - Anything simulated must also be drawn.
 - The Quest grip axis points about 45 degrees above the controller's pointing direction; a blade along it points up. v01 tilts the sword 0.5 rad toward the pointing direction.
 - Keep a clear lane between where you stand and the shooting targets; v01's first layout had a dummy blocking the cans.
+- A mechanic the world does not teach does not exist: v01's two-handed reload went unused. Prefer one button, or a gesture the scene shows.
+- Check every target's line from the start spot through gate pillars, poles and dummies (v02's gong first sat behind a pillar).
 - Sprites and instanced pools still cost draw calls and triangles when invisible by opacity or scale; hide them.
 
 ## Writing for Faisal

@@ -2,6 +2,27 @@
 
 Newest first.
 
+## 2026-11-19 · v01 playtest, and v02, the gallery
+
+**Faisal on v01.**
+- Could not work out the reload. It should be more seamless.
+- Wants the place more compelling, with more things that are cool to shoot at.
+
+**Claude's read.** The two-handed magazine reload asked for three things at once (drop with A, find the left hip, line up the grip) with nothing in the world teaching it. Cut it rather than tune it. The clearing had targets for the sword but only six small cans for the pistol, all at one distance.
+
+**v02 changes.**
+- Reload: one press of A or X. The old magazine drops, a fresh one rises into the grip, the slide closes. Firing is blocked for 0.4 s. The left-hip pouch is gone.
+- Gallery, each with a clear line from where you start: six glass bottles on a fence (left), four clay pots on stone plinths, three melons on stumps, three paper lanterns on a rope (first hit swings, second tears it down, it is rehung), five wooden critters (goblin, crow, boar) that flip up by the gate, at most three at a time, a gong at 16 m, bubbles drifting up from glowing flowers on the right. Everything grows back.
+- Scenery: a weathered shrine gate, the lantern rope and poles, painted mountains, the trees pulled back to open the lane.
+- Sword, holsters, recall, movement: unchanged from v01.
+
+**Agent checks.** Emulated Quest 3: 24/24. About 145 draw calls and 280 thousand triangles in the headset view (v01: about 95 and 255 thousand). Watch the frame rate.
+
+**Questions for the playtest.**
+- Is reloading now invisible, or does it still interrupt?
+- Which targets are the most fun to hit, and is anything too far or too small?
+- Does it run smoothly?
+
 ## 2026-11-19 · v01, the clearing
 
 **Faisal's brief.** A VR game for his Quest 3 built around wielding weapons: swords, guns, interesting weapons. Controllers are the main input, hand tracking not a priority. Fun and visually pleasing. Sandbox first (no goals), arena in a forest. Look: whimsical, quirky yet gritty, anime or cool animated-film feel; not settled. Feel and the weapon experience come first.

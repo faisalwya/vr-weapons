@@ -201,32 +201,30 @@ for (let i = 0; i < 8; i++) await fireOnce();
 await wait(0.3); L = await fresh(); s = await st();
 check(L.filter(l => l === 'SHOT').length === 7 && L.includes('DRY'), 'eight rounds, then a dry click', `${L.filter(l => l === 'SHOT').length} more shots, ${L.includes('DRY') ? 'dry' : 'no dry'} · ammo ${JSON.stringify(s.ammo)}`);
 
-// 6. reload: A drops the magazine, left hand takes one from the left hip and pushes it into the grip
-await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.3);
+// 6. reload: one press of A
+await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.8);
 L = await fresh(); s = await st();
-check(L.includes('EJECT') && s.ammo[2] === false, 'A drops the magazine', L.join(' / '));
-const pouchAt = await G(() => { const w = window.__game.weapons, b = w.body; return [b.head.x - 0.24 * b.R.x + (0.03 - 0.08) * b.F.x, b.hipY, b.head.z - 0.24 * b.R.z + (0.03 - 0.08) * b.F.z]; });
-await gripTo('left', pouchAt, 0.6);
-const z3 = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.left.pos); });
-check(z3 === 'hipL', 'left hand at the left hip is in the magazine zone', z3);
-await K('left', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
-s = await st(); check(s.lh === 'mag', 'squeezing there takes a magazine', JSON.stringify(s));
-// where the magazine top must go: the bottom of the grip
-const want = await G(() => {
-  const w = window.__game.weapons, gun = w.pistol.mesh, h = w.hands.left, m = h.held.mesh;
-  gun.updateMatrixWorld(); m.updateMatrixWorld();
-  const well = gun.localToWorld(gun.position.clone().set(0, -0.078, 0.048)), top = m.localToWorld(m.position.clone().set(0, 0.046, 0));
-  return { well: [well.x, well.y, well.z], off: [top.x - h.pos.x, top.y - h.pos.y, top.z - h.pos.z] };
-});
-await gripTo('left', [want.well[0] - want.off[0], want.well[1] - want.off[1] - 0.12, want.well[2] - want.off[2]], 0.5);
-await gripTo('left', [want.well[0] - want.off[0], want.well[1] - want.off[1], want.well[2] - want.off[2]], 0.3);
-await wait(0.3);
-L = await fresh(); s = await st();
-check(L.includes('RELOAD') && s.ammo[0] && s.ammo[2], 'pushing the magazine into the grip reloads and chambers', `${L.join(' / ')} · ammo ${JSON.stringify(s.ammo)}`);
-await K('left', { dur: 0.1, buttons: { squeeze: 0 } }); await settle();
+check(L.includes('EJECT') && L.includes('RELOAD') && s.ammo[0] && s.ammo[1] === 7 && s.ammo[2], 'one press of A reloads and chambers', `${L.join(' / ')} · ammo ${JSON.stringify(s.ammo)}`);
 await fireOnce(); await wait(0.2); L = await fresh();
 check(L.includes('SHOT'), 'the reloaded pistol fires', L.join(' / '));
 await shot('06-reloaded');
+
+// 6b. the gallery: a bottle, the gong, a critter, a lantern (two hits)
+const shootAt = async (getter, n = 1) => { const p = await G(getter); await aimAt('right', p); await wait(0.2); for (let i = 0; i < n; i++) { await fireOnce(); await wait(0.25); } return fresh(); };
+L = await shootAt(() => { const c = window.__game.targets.kinds.bottle.items[2].hc; return [c.x, c.y, c.z]; });
+check(L.some(l => l.startsWith('SMASH bottle')), 'a bottle on the fence smashes', L.join(' / '));
+L = await shootAt(() => { const c = window.__game.targets.gong.c; return [c.x, c.y, c.z]; });
+check(L.some(l => l.startsWith('GONG')), 'the far gong rings', L.join(' / '));
+await G(() => { const C = window.__game.targets.critters[1]; C.state = 'rising'; C.target = 0; C.t = 10; });
+await wait(0.9);
+L = await shootAt(() => { const C = window.__game.targets.critters[1]; C.piv.updateMatrixWorld(); const p = C.piv.localToWorld(C.piv.position.clone().set(0, C.cy, 0)); return [p.x, p.y, p.z]; });
+check(L.some(l => l.startsWith('CRITTER')), 'a popped-up critter gets knocked down', L.join(' / '));
+// it swings after the first hit, so aim again for each shot
+L = [];
+for (let i = 0; i < 4 && !L.some(l => l.startsWith('LANTERN ')); i++) L = L.concat(await shootAt(() => { const c = window.__game.targets.lanterns[1].c; return [c.x, c.y, c.z]; }));
+check(L.some(l => l.startsWith('LANTERN ')), 'two hits bring a lantern down', L.join(' / '));
+await shot('06b-gallery');
+await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.6); await fresh();
 
 // 7. snap turn and a jump
 const yaw0 = (await st()).rig.yaw;
