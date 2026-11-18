@@ -1,0 +1,246 @@
+// Enter VR in an emulated Quest 3 (IWER, Meta's WebXR emulator) inside headless Chrome, play the sandbox with
+// emulated controllers and report what happened. Checks function, not feel.
+//
+//   node tests/xr_check.mjs v01 [out-dir]      # screenshots go to out-dir (default: a temp folder)
+//
+// Needs Playwright with a Chromium and the `iwer` npm package (installed once into a temp folder if missing).
+
+import http from 'node:http';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const VER = process.argv[2] || 'v01';
+const OUT = process.argv[3] || fs.mkdtempSync(path.join(os.tmpdir(), 'xr-check-'));
+fs.mkdirSync(OUT, { recursive: true });
+
+const require = createRequire(import.meta.url);
+function need(name, installDir) {
+  try { return require.resolve(name); } catch (e) { /* not local */ }
+  const g = path.join(execSync('npm root -g').toString().trim(), name);
+  if (fs.existsSync(g)) return g;
+  const local = path.join(installDir, 'node_modules', name);
+  if (!fs.existsSync(local)) { console.log(`installing ${name} into ${installDir}`); execSync(`npm install --silent --prefix "${installDir}" ${name}`, { stdio: 'inherit' }); }
+  return local;
+}
+const { chromium } = require(need('playwright', path.join(os.tmpdir(), 'epg-pw')));
+const iwerDir = need('iwer', path.join(os.tmpdir(), 'epg-iwer'));
+const iwerRoot = iwerDir.endsWith('.js') ? path.dirname(path.dirname(iwerDir)) : iwerDir;
+const IWER_JS = fs.readFileSync(path.join(iwerRoot, 'build', 'iwer.min.js'), 'utf8');
+const CHROME = process.env.CHROME || undefined;
+
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+const server = http.createServer((req, res) => {
+  let p = decodeURIComponent(req.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
+  const f = path.join(ROOT, p);
+  if (!f.startsWith(ROOT) || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
+});
+await new Promise(r => server.listen(0, '127.0.0.1', r));
+const PORT = server.address().port;
+
+// the emulator and a puppet for its controllers: keyframes per controller, played in game time
+const PUPPET = `
+(() => {
+  const d = new IWER.XRDevice(IWER.metaQuest3);
+  d.installRuntime({ forceInstall: true }); d.stereoEnabled = false; d.primaryInputMode = 'controller';
+  d.position.set(0, 1.6, 0);
+  window.__xr = d;
+  const Q = { left: [], right: [] }, from = {};
+  window.__key = (side, k) => Q[side].push(k);
+  window.__idle = () => !Q.left.length && !Q.right.length;
+  function puppet(dt) {
+    for (const side of ['left', 'right']) {
+      const q = Q[side]; if (!q.length) continue;
+      const k = q[0], inp = d.controllers[side];
+      if (!k.started) {
+        k.started = true; k.t = 0; from[side] = inp.position.clone();
+        const q0 = inp.quaternion; k.q0 = [q0.x, q0.y, q0.z, q0.w];
+        if (k.q && k.q0[0] * k.q[0] + k.q0[1] * k.q[1] + k.q0[2] * k.q[2] + k.q0[3] * k.q[3] < 0) k.q = k.q.map(x => -x);
+        if (k.buttons) for (const id in k.buttons) inp.updateButtonValue(id, k.buttons[id]);
+        if (k.axes) inp.updateAxes('thumbstick', k.axes[0], k.axes[1]);
+      }
+      k.t += dt;
+      const f = Math.min(1, k.t / (k.dur || 0.0001)), e = k.linear ? f : f * f * (3 - 2 * f);
+      if (k.q) { const qq = k.q0.map((x, i) => x + (k.q[i] - x) * e), l = Math.hypot(...qq); inp.quaternion.set(qq[0] / l, qq[1] / l, qq[2] / l, qq[3] / l); }
+      if (k.to) { const a = from[side]; inp.position.set(a.x + (k.to[0] - a.x) * e, a.y + (k.to[1] - a.y) * e, a.z + (k.to[2] - a.z) * e); }
+      if (f >= 1) { q.shift(); if (k.then) k.then(); }
+    }
+  }
+  const req = navigator.xr.requestSession.bind(navigator.xr);
+  navigator.xr.requestSession = async (...a) => {
+    const s = await req(...a);
+    const raf = s.requestAnimationFrame.bind(s);
+    let last = null; window.__gt = 0;
+    s.requestAnimationFrame = cb => raf((t, f) => {
+      const dt = last === null ? 0.016 : Math.min(0.05, Math.max(0.001, (t - last) / 1000)); last = t;
+      window.__gt += dt; puppet(dt); cb(t, f);
+    });
+    return s;
+  };
+})();`;
+
+const results = [];
+const check = (ok, what, detail = '') => { results.push({ ok, what }); console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${detail ? '  · ' + detail : ''}`); };
+const info = (what, detail) => console.log(`info ${what}  · ${detail}`);
+
+const browser = await chromium.launch({ executablePath: CHROME, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 960, height: 720 } });
+const errors = [];
+page.on('pageerror', e => errors.push(e.message));
+page.on('console', m => { if (m.type() === 'error' && !/fonts\.g/.test(m.text())) errors.push(m.text()); });
+await page.addInitScript({ content: IWER_JS + PUPPET + '\nwindow.__log = [];' });
+await page.goto(`http://127.0.0.1:${PORT}/${VER}/`);
+await page.waitForSelector('#enter:not([hidden])', { timeout: 20000 });
+await page.click('#enter');
+await page.waitForFunction(() => document.body.classList.contains('in-vr'), null, { timeout: 15000 });
+
+const K = (side, k) => page.evaluate(([s, k]) => window.__key(s, k), [side, k]);
+const settle = async (ms = 90000) => { await page.waitForFunction(() => window.__idle(), null, { timeout: ms, polling: 50 }); };
+const wait = async secs => { await K('left', { dur: secs }); await settle(); };
+const log = () => page.evaluate(() => window.__log.slice());
+let mark = 0;
+const fresh = async () => { const L = await log(); const out = L.slice(mark); mark = L.length; return out; };
+const G = (fn, arg) => page.evaluate(fn, arg);
+const st = () => G(() => { const w = window.__game.weapons; return { sword: w.sword.state, pistol: w.pistol.state, rh: w.hands.right.held && (w.hands.right.held.kind), lh: w.hands.left.held && (w.hands.left.held.kind), ammo: [w.pistol.chambered, w.pistol.mag, w.pistol.magIn], rig: { ...window.__game.rig } }; });
+const shot = async name => { await page.screenshot({ path: path.join(OUT, name + '.png') }); };
+// the game's grip position minus the emulated controller position, so we can place the grip where we want it
+const gripOffset = side => G(s => { const h = window.__game.weapons.hands[s], c = window.__xr.controllers[s].position; return [h.pos.x - c.x, h.pos.y - c.y, h.pos.z - c.z]; }, side);
+const gripTo = async (side, p, dur, extra = {}) => { const o = await gripOffset(side); await K(side, Object.assign({ to: [p[0] - o[0], p[1] - o[1], p[2] - o[2]], dur }, extra)); await settle(); };
+const yawPitchQ = (yaw, pitch) => { const cy = Math.cos(yaw / 2), sy = Math.sin(yaw / 2), cp = Math.cos(pitch / 2), sp = Math.sin(pitch / 2); return [cy * sp, sy * cp, -sy * sp, cy * cp]; };
+
+// 0. arrive
+await K('left', { to: [-0.25, 1.2, -0.35], dur: 0.3 }); await K('right', { to: [0.25, 1.2, -0.35], dur: 0.3 }); await settle(); await wait(1.0);
+let s = await st();
+check(s.sword === 'holstered' && s.pistol === 'holstered', 'both weapons start holstered', JSON.stringify(s));
+info('body', JSON.stringify(await G(() => { const b = window.__game.weapons.body; return { head: b.head, yaw: b.yaw, hipY: b.hipY }; })));
+await shot('01-arrive');
+
+// 1. draw the sword over the right shoulder
+await gripTo('right', [0.16, 1.5, 0.14], 0.6);
+const z1 = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.right.pos); });
+check(z1 === 'back', 'right hand over the shoulder is in the sword zone', z1);
+await K('right', { dur: 0.15, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+s = await st(); check(s.sword === 'held' && s.rh === 'sword', 'squeezing there draws the sword', JSON.stringify(s));
+check((await fresh()).some(l => l === 'DRAW sword'), 'draw is logged');
+await gripTo('right', [0.3, 1.3, -0.4], 0.5); await wait(0.3);
+const blade = await G(() => { const T = window.__game.weapons.sword.mesh, q = T.quaternion, v = { x: 0, y: 0, z: -1 };
+  // rotate (0,0,-1) by q
+  const ix = q.w * v.x + q.y * v.z - q.z * v.y, iy = q.w * v.y + q.z * v.x - q.x * v.z, iz = q.w * v.z + q.x * v.y - q.y * v.x, iw = -q.x * v.x - q.y * v.y - q.z * v.z;
+  return [ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y, iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z, iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x].map(x => +x.toFixed(2)); });
+info('blade direction with the controller held level', JSON.stringify(blade));
+check(blade[2] < -0.3, 'held level, the blade points away from you', JSON.stringify(blade));
+await shot('02-sword-drawn');
+
+// 2. step up to the right-hand dummy and cut
+const HX = 1.5, HZ = -0.25;   // where you stand: 1.05 m in front of the dummy at (1.5, -1.3)
+await page.evaluate(([x, z]) => window.__xr.position.set(x, 1.6, z), [HX, HZ]); await wait(0.6);
+await gripTo('right', [HX + 0.55, 1.75, HZ - 0.25], 0.6);
+await gripTo('right', [HX - 0.45, 1.05, HZ - 0.4], 0.14, { linear: true });
+await wait(0.6);
+let L = await fresh();
+check(L.some(l => /^(CUT|SLASH)/.test(l)), 'a fast diagonal swing at the dummy cuts', L.filter(l => /CUT|SLASH|HIT|TAP/.test(l)).join(' / ') || L.join(' / '));
+info('swing result', L.join(' / '));
+await shot('03-after-cut');
+// a slow push is not a cut
+await gripTo('right', [HX, 1.3, HZ - 0.25], 0.8); await gripTo('right', [HX, 1.3, HZ - 0.6], 0.8); await wait(0.3);
+L = await fresh();
+check(!L.some(l => /^(CUT|SLASH)/.test(l)), 'a slow push into the dummy does not cut', L.join(' / ') || 'nothing');
+await gripTo('right', [HX + 0.3, 1.3, HZ - 0.25], 0.6);
+
+// 3. throw the sword at the dummy (let go in mid swing), then recall it
+await gripTo('right', [HX + 0.3, 1.7, HZ + 0.2], 0.5);
+const o3 = await gripOffset('right');
+await K('right', { to: [HX + 0.15 - o3[0], 1.5 - o3[1], HZ - 0.25 - o3[2]], dur: 0.07, linear: true });
+await K('right', { to: [HX + 0.1 - o3[0], 1.45 - o3[1], HZ - 0.45 - o3[2]], dur: 0.05, linear: true, buttons: { squeeze: 0 } }); await settle(); await wait(1.0);
+let s3 = await st(); L = await fresh();
+check((s3.sword === 'free' || s3.sword === 'stuck') && L.some(l => l.startsWith('THROW sword')), 'letting go mid swing throws the sword', `${s3.sword} · ${L.join(' / ')}`);
+await shot('04-thrown');
+await gripTo('right', [HX + 0.3, 1.25, HZ - 0.2], 0.4);
+await K('right', { dur: 0.1, buttons: { squeeze: 1 } }); await K('right', { dur: 0.1, buttons: { trigger: 1 } }); await K('right', { dur: 0.1, buttons: { trigger: 0 } }); await settle(); await wait(0.9);
+s = await st(); L = await fresh();
+check(L.some(l => l.startsWith('RECALL sword')) && s.sword === 'held', 'empty fist plus trigger recalls the sword to the hand', `${s.sword} · ${L.join(' / ')}`);
+
+// 4. holster it again: over the shoulder, wherever you stand
+await gripTo('right', [HX + 0.16, 1.5, HZ + 0.14], 0.6); await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle(); await wait(0.2);
+s = await st(); check(s.sword === 'holstered' && !s.rh, 'letting go over the shoulder puts the sword away', JSON.stringify(s));
+L = await fresh();
+
+// 5. draw the pistol from the right hip and shoot a can
+await page.evaluate(() => window.__xr.position.set(0, 1.6, 0)); await wait(0.6);
+const hip = await G(() => { const w = window.__game.weapons, p = w.pistol.mesh.position; return [p.x, p.y, p.z]; });
+await gripTo('right', [hip[0], hip[1] + 0.02, hip[2]], 0.6);
+const z2 = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.right.pos); });
+check(z2 === 'hipR', 'right hand at the right hip is in the pistol zone', z2);
+await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+s = await st(); check(s.pistol === 'held' && s.rh === 'pistol', 'squeezing at the hip draws the pistol', JSON.stringify(s));
+await gripTo('right', [0.2, 1.35, -0.45], 0.5);
+// aim the controller at the third can
+const can = await G(() => { const c = window.__game.targets.cans[2].home; return [c.x, c.y, c.z]; });
+const aimAt = async (side, target) => {
+  for (let i = 0; i < 3; i++) {
+    const r = await G(([s, t]) => { const g = window.__game.weapons, h = g.hands[s], p = g.pistol.mesh;
+      const d = [t[0] - h.pos.x, t[1] - h.pos.y, t[2] - h.pos.z], l = Math.hypot(...d); return d.map(x => x / l); }, [side, target]);
+    const yaw = Math.atan2(-r[0], -r[2]), pitch = Math.asin(r[1]);
+    await K(side, { q: yawPitchQ(yaw, pitch), dur: 0.15 }); await settle(); await wait(0.15);
+  }
+};
+await aimAt('right', can); await wait(0.3);
+const fireOnce = async () => { await K('right', { dur: 0.05, buttons: { trigger: 1 } }); await K('right', { dur: 0.12, buttons: { trigger: 0 } }); await settle(); };
+await fireOnce(); await wait(0.5);
+L = await fresh();
+check(L.includes('SHOT'), 'trigger fires', L.join(' / '));
+check(L.some(l => l.startsWith('SHOTHIT can')), 'the shot hits the can it was aimed at', L.join(' / '));
+await shot('05-shot');
+// empty the gun: 8 rounds in total, then a dry click
+for (let i = 0; i < 8; i++) await fireOnce();
+await wait(0.3); L = await fresh(); s = await st();
+check(L.filter(l => l === 'SHOT').length === 7 && L.includes('DRY'), 'eight rounds, then a dry click', `${L.filter(l => l === 'SHOT').length} more shots, ${L.includes('DRY') ? 'dry' : 'no dry'} · ammo ${JSON.stringify(s.ammo)}`);
+
+// 6. reload: A drops the magazine, left hand takes one from the left hip and pushes it into the grip
+await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.3);
+L = await fresh(); s = await st();
+check(L.includes('EJECT') && s.ammo[2] === false, 'A drops the magazine', L.join(' / '));
+const pouchAt = await G(() => { const w = window.__game.weapons, b = w.body; return [b.head.x - 0.24 * b.R.x + (0.03 - 0.08) * b.F.x, b.hipY, b.head.z - 0.24 * b.R.z + (0.03 - 0.08) * b.F.z]; });
+await gripTo('left', pouchAt, 0.6);
+const z3 = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.left.pos); });
+check(z3 === 'hipL', 'left hand at the left hip is in the magazine zone', z3);
+await K('left', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+s = await st(); check(s.lh === 'mag', 'squeezing there takes a magazine', JSON.stringify(s));
+// where the magazine top must go: the bottom of the grip
+const want = await G(() => {
+  const w = window.__game.weapons, gun = w.pistol.mesh, h = w.hands.left, m = h.held.mesh;
+  gun.updateMatrixWorld(); m.updateMatrixWorld();
+  const well = gun.localToWorld(gun.position.clone().set(0, -0.078, 0.048)), top = m.localToWorld(m.position.clone().set(0, 0.046, 0));
+  return { well: [well.x, well.y, well.z], off: [top.x - h.pos.x, top.y - h.pos.y, top.z - h.pos.z] };
+});
+await gripTo('left', [want.well[0] - want.off[0], want.well[1] - want.off[1] - 0.12, want.well[2] - want.off[2]], 0.5);
+await gripTo('left', [want.well[0] - want.off[0], want.well[1] - want.off[1], want.well[2] - want.off[2]], 0.3);
+await wait(0.3);
+L = await fresh(); s = await st();
+check(L.includes('RELOAD') && s.ammo[0] && s.ammo[2], 'pushing the magazine into the grip reloads and chambers', `${L.join(' / ')} · ammo ${JSON.stringify(s.ammo)}`);
+await K('left', { dur: 0.1, buttons: { squeeze: 0 } }); await settle();
+await fireOnce(); await wait(0.2); L = await fresh();
+check(L.includes('SHOT'), 'the reloaded pistol fires', L.join(' / '));
+await shot('06-reloaded');
+
+// 7. snap turn and a jump
+const yaw0 = (await st()).rig.yaw;
+await K('right', { dur: 0.1, axes: [1, 0] }); await K('right', { dur: 0.2, axes: [0, 0] }); await settle(); await wait(0.2);
+s = await st(); L = await fresh();
+check(Math.abs(s.rig.yaw - yaw0 + Math.PI / 4) < 0.01 && L.includes('TURN right'), 'right stick turns 45 degrees right', `${yaw0} -> ${s.rig.yaw.toFixed(3)} · ${L.join(' / ')}`);
+await K('left', { q: yawPitchQ(0, -0.35), dur: 0.2 }); await settle();
+await K('left', { dur: 0.4, axes: [0, -1] }); await settle(); await shot('07-jump-arc');
+await K('left', { dur: 0.2, axes: [0, 0] }); await settle(); await wait(0.5);
+L = await fresh(); s = await st();
+check(L.some(l => l.startsWith('JUMP')), 'left stick forward then release jumps', `${L.join(' / ')} · rig ${JSON.stringify(s.rig)}`);
+
+info('frame stats', JSON.stringify(await G(() => ({ calls: window.__game.renderer.info.render.calls, tris: window.__game.renderer.info.render.triangles }))));
+check(errors.length === 0, 'no page errors', errors.slice(0, 5).join(' | '));
+console.log(`\n${results.filter(r => r.ok).length}/${results.length} checks passed · screenshots in ${OUT}`);
+await browser.close(); server.close();
+process.exit(results.every(r => r.ok) ? 0 : 1);
