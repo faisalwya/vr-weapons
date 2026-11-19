@@ -123,7 +123,7 @@ await shot('01-arrive');
 // 1. draw the sword over the right shoulder
 await gripTo('right', [0.16, 1.5, 0.14], 0.6);
 const z1 = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.right.pos); });
-check(z1 === 'back', 'right hand over the shoulder is in the sword zone', z1);
+check(z1 === 'backR', 'right hand over the shoulder is in the sword zone', z1);
 await K('right', { dur: 0.15, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
 s = await st(); check(s.sword === 'held' && s.rh === 'sword', 'squeezing there draws the sword', JSON.stringify(s));
 check((await fresh()).some(l => l === 'DRAW sword'), 'draw is logged');
@@ -193,20 +193,20 @@ await aimAt('right', can); await wait(0.3);
 const fireOnce = async () => { await K('right', { dur: 0.05, buttons: { trigger: 1 } }); await K('right', { dur: 0.12, buttons: { trigger: 0 } }); await settle(); };
 await fireOnce(); await wait(0.5);
 L = await fresh();
-check(L.includes('SHOT'), 'trigger fires', L.join(' / '));
+check(L.includes('SHOT pistol'), 'trigger fires', L.join(' / '));
 check(L.some(l => l.startsWith('SHOTHIT can')), 'the shot hits the can it was aimed at', L.join(' / '));
 await shot('05-shot');
 // empty the gun: 8 rounds in total, then a dry click
 for (let i = 0; i < 8; i++) await fireOnce();
 await wait(0.3); L = await fresh(); s = await st();
-check(L.filter(l => l === 'SHOT').length === 7 && L.includes('DRY'), 'eight rounds, then a dry click', `${L.filter(l => l === 'SHOT').length} more shots, ${L.includes('DRY') ? 'dry' : 'no dry'} · ammo ${JSON.stringify(s.ammo)}`);
+check(L.filter(l => l === 'SHOT pistol').length === 7 && L.includes('DRY'), 'eight rounds, then a dry click', `${L.filter(l => l === 'SHOT pistol').length} more shots, ${L.includes('DRY') ? 'dry' : 'no dry'} · ammo ${JSON.stringify(s.ammo)}`);
 
 // 6. reload: one press of A
 await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.8);
 L = await fresh(); s = await st();
-check(L.includes('EJECT') && L.includes('RELOAD') && s.ammo[0] && s.ammo[1] === 7 && s.ammo[2], 'one press of A reloads and chambers', `${L.join(' / ')} · ammo ${JSON.stringify(s.ammo)}`);
+check(L.includes('EJECT') && L.includes('RELOAD pistol') && s.ammo[0] && s.ammo[1] === 7 && s.ammo[2], 'one press of A reloads and chambers', `${L.join(' / ')} · ammo ${JSON.stringify(s.ammo)}`);
 await fireOnce(); await wait(0.2); L = await fresh();
-check(L.includes('SHOT'), 'the reloaded pistol fires', L.join(' / '));
+check(L.includes('SHOT pistol'), 'the reloaded pistol fires', L.join(' / '));
 await shot('06-reloaded');
 
 // 6b. the gallery: a bottle, the gong, a critter, a lantern (two hits)
@@ -225,6 +225,76 @@ for (let i = 0; i < 4 && !L.some(l => l.startsWith('LANTERN ')); i++) L = L.conc
 check(L.some(l => l.startsWith('LANTERN ')), 'two hits bring a lantern down', L.join(' / '));
 await shot('06b-gallery');
 await K('right', { dur: 0.1, buttons: { 'a-button': 1 } }); await K('right', { dur: 0.1, buttons: { 'a-button': 0 } }); await settle(); await wait(0.6); await fresh();
+
+// 6c. dual pistols: the left hand draws the second pistol from the left hip and fires it
+const hipL = await G(() => { const p = window.__game.weapons.pistolL.mesh.position; return [p.x, p.y, p.z]; });
+await gripTo('left', [hipL[0], hipL[1] + 0.02, hipL[2]], 0.6);
+await K('left', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+s = await G(() => { const w = window.__game.weapons; return { l: w.pistolL.state, r: w.pistolR.state, lh: w.hands.left.held && w.hands.left.held.slot }; });
+check(s.l === 'held' && s.r === 'held' && s.lh === 'hipL', 'both hands hold a pistol', JSON.stringify(s));
+await gripTo('left', [-0.2, 1.35, -0.45], 0.5);
+const fireL = async () => { await K('left', { dur: 0.05, buttons: { trigger: 1 } }); await K('left', { dur: 0.12, buttons: { trigger: 0 } }); await settle(); };
+await aimAt('left', await G(() => { const c = window.__game.targets.cans[0].home; return [c.x, c.y, c.z]; })); await wait(0.2); await fresh();
+await fireL(); await wait(0.3); L = await fresh();
+check(L.some(l => l.startsWith('SHOT pistol')), 'the left pistol fires', L.join(' / '));
+await shot('06c-dual');
+// put both away
+for (const [side, slot] of [['right', 'pistolR'], ['left', 'pistolL']]) {
+  const hp = await G(sl => { const w = window.__game.weapons, b = w.body, r = sl === 'pistolR' ? 0.25 : -0.25; return [b.head.x + b.R.x * r + b.F.x * (0.02 - 0.08), b.hipY + 0.06, b.head.z + b.R.z * r + b.F.z * (0.02 - 0.08)]; }, slot);
+  await K(side, { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+  await gripTo(side, hp, 0.5); await K(side, { dur: 0.1, buttons: { squeeze: 0 } }); await settle();
+}
+await wait(0.2);
+s = await G(() => { const w = window.__game.weapons; return [w.pistolL.state, w.pistolR.state]; });
+check(s[0] === 'holstered' && s[1] === 'holstered', 'both pistols go back on the hips', JSON.stringify(s));
+await fresh();
+
+// 6d. the shotgun: draw over the left shoulder, blast, dry, pump with the other hand, blast, flick-pump, load
+await gripTo('left', [-0.16, 1.5, 0.14], 0.6);
+const zL = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.left.pos); });
+check(zL === 'backL', 'left hand over the left shoulder is in the shotgun zone', zL);
+await K('left', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+s = await G(() => window.__game.weapons.shotgun.state + ' ' + window.__game.weapons.shotgun.hand);
+check(s === 'held left', 'squeezing there draws the shotgun', s);
+await gripTo('left', [-0.12, 1.35, -0.3], 0.5);
+const potAt = () => { const c = window.__game.targets.kinds.pot.items[0].hc; return [c.x, c.y, c.z]; };
+await aimAt('left', await G(potAt)); await wait(0.2); await fresh();
+await fireL(); await wait(0.4); L = await fresh();
+check(L.some(l => l.startsWith('SHOT shotgun')) && L.some(l => l.startsWith('SHOTHIT') && !l.includes('none')), 'the shotgun blast hits what it was aimed at', L.join(' / '));
+await shot('06d-blast');
+await fireL(); await wait(0.2); L = await fresh();
+check(L.some(l => l.startsWith('DRY')), 'it will not fire again until pumped', L.join(' / '));
+// the right hand takes the fore-end
+const fore = await G(() => { const g = window.__game.weapons.shotgun; g.mesh.updateMatrixWorld(); const p = g.mesh.localToWorld(g.pump.position.clone()); return [p.x, p.y, p.z]; });
+await gripTo('right', fore, 0.6); await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+L = await fresh(); check(L.includes('SUPPORT'), 'the other hand takes the fore-end', L.join(' / '));
+const gh = await G(() => { const w = window.__game.weapons; return [w.hands.left.pos.x, w.hands.left.pos.y, w.hands.left.pos.z]; });
+const toward = (p, q, k) => p.map((x, i) => x + (q[i] - x) * k);
+const foreNow = await G(() => { const w = window.__game.weapons; return [w.hands.right.pos.x, w.hands.right.pos.y, w.hands.right.pos.z]; });
+const dist = Math.hypot(...foreNow.map((x, i) => x - gh[i]));
+await gripTo('right', toward(foreNow, gh, 0.1 / dist), 0.18);
+await gripTo('right', foreNow, 0.18); await wait(0.2);
+L = await fresh(); s = await G(() => window.__game.weapons.shotgun.chambered);
+check(L.some(l => l.startsWith('PUMP') && l.includes('ready')) && s, 'pulling the fore-end back and forward pumps a fresh shell in', L.join(' / '));
+await shot('06e-two-hands');
+await fireL(); await wait(0.3); L = await fresh();
+check(L.some(l => l.startsWith('SHOT shotgun')), 'two-handed, it fires again', L.join(' / '));
+await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle(); await wait(0.2); await fresh();
+// one hand: flick the muzzle up hard
+const q0 = await G(() => { const q = window.__xr.controllers.left.quaternion; return [q.x, q.y, q.z, q.w]; });
+await K('left', { q: yawPitchQ(0, 0.75), dur: 0.06, linear: true }); await K('left', { q: q0, dur: 0.4 }); await settle(); await wait(0.2);
+L = await fresh(); s = await G(() => window.__game.weapons.shotgun.chambered);
+check(L.some(l => l.startsWith('PUMP') && l.includes('ready')) && s, 'one-handed, a hard flick up pumps it', L.join(' / '));
+const tube0 = await G(() => window.__game.weapons.shotgun.tube);
+await K('left', { dur: 0.1, buttons: { 'x-button': 1 } }); await K('left', { dur: 0.1, buttons: { 'x-button': 0 } }); await settle(); await wait(0.1);
+L = await fresh(); const tube1 = await G(() => window.__game.weapons.shotgun.tube);
+check(L.some(l => l.startsWith('LOAD')) && tube1 === tube0 + 1, 'X loads a shell into the tube', `${tube0} -> ${tube1} · ${L.join(' / ')}`);
+// put it back over the shoulder
+await K('left', { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+await gripTo('left', [-0.16, 1.5, 0.14], 0.6); await K('left', { dur: 0.1, buttons: { squeeze: 0 } }); await settle(); await wait(0.2);
+s = await G(() => window.__game.weapons.shotgun.state);
+check(s === 'holstered', 'letting go over the left shoulder puts the shotgun away', s);
+await gripTo('left', [-0.25, 1.2, -0.35], 0.4); await gripTo('right', [0.25, 1.2, -0.35], 0.4); await fresh();
 
 // 7. snap turn and a jump
 const yaw0 = (await st()).rig.yaw;

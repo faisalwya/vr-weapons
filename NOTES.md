@@ -2,6 +2,28 @@
 
 Newest first.
 
+## 2026-11-19 · v02 playtest, and v03, the arsenal
+
+**Faisal on v02.** Decent, but it can be more fun and satisfying. Dual-wielding pistols should be an option. Add a different kind of gun to explore other mechanics, and different reactions and feedback when firing.
+
+**v03 changes.**
+- Four holsters: sword over the right shoulder, shotgun over the left shoulder, a pistol on each hip. Any hand draws anything; let go at its holster to put it away.
+- Dual pistols: each works on its own; A reloads the right one, X the left.
+- Pump shotgun, chosen because it differs from the pistol on every axis:
+  - Rhythm: one shot, then you must pump. A dry click and a note on the sign if you forget.
+  - Pump: take the wooden fore-end with your other hand, pull it back (the red hull flies out) and push it forward (a fresh shell goes in). With one hand, flick the gun up hard. Holding with two hands also steadies the aim and softens the kick.
+  - Blast: nine pellets in a cone, each its own hit; cans fly much further, dummy parts and bottles go in one shot up close.
+  - Feel: deeper, longer boom with echo; a bigger flash and smoke; the muzzle kicks about twice as hard; long vibration in both hands.
+  - Shells: 1 in the chamber plus 6 in the tube. A or X loads one at a time (hold to keep loading). Gold dot = chambered, red dots = tube.
+- Preview ghost now holds the left pistol.
+
+**Agent checks.** Emulated Quest 3: 37/37 (adds dual draw and fire, holstering both, shotgun draw, blast hits, dry until pumped, fore-end grab, two-handed pump, flick pump, load, holster). About 140 draw calls.
+
+**Questions for the playtest.**
+- Shotgun: does the pump feel good? Two hands or the flick, which did you use?
+- Dual pistols: fun, or awkward to aim?
+- Is the shotgun blast satisfying enough, or should targets react even harder?
+
 ## 2026-11-19 · v01 playtest, and v02, the gallery
 
 **Faisal on v01.**

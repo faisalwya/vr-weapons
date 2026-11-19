@@ -29,7 +29,8 @@ Every version stays playable at `/vNN/`. The newest is the one being worked on; 
 | Version | What it is | Verdict |
 |---|---|---|
 | [v01](https://faisalwya.github.io/vr-weapons/v01/) | The clearing. Sword over the right shoulder, pistol on the right hip with magazine reloads, recall to hand, sticking throws, three straw dummies (heads and arms come off and grow back), six cans on a log (they hop back), puffball mushrooms, jump and snap turn. | Could not work out the reload; wanted it seamless. Wanted a more compelling place with more to shoot. |
-| [v02](https://faisalwya.github.io/vr-weapons/v02/) | The gallery. One-press reload (A or X). New targets: bottles on a fence, clay pots on stone plinths, melons on stumps, paper lanterns on a rope (swing, then fall), five pop-up wooden critters by a shrine gate, a far gong, bubbles drifting up. Shrine gate and mountains for depth. Sword unchanged. | Waiting for playtest. |
+| [v02](https://faisalwya.github.io/vr-weapons/v02/) | The gallery. One-press reload (A or X). New targets: bottles on a fence, clay pots on stone plinths, melons on stumps, paper lanterns on a rope (swing, then fall), five pop-up wooden critters by a shrine gate, a far gong, bubbles drifting up. Shrine gate and mountains for depth. Sword unchanged. | Decent; wants more fun and satisfaction: dual pistols, and a different gun with its own mechanics and feedback. |
+| [v03](https://faisalwya.github.io/vr-weapons/v03/) | The arsenal. A second pistol on the left hip (dual wield). A pump shotgun over the left shoulder: nine-pellet blast, heavy kick, pump with the other hand or flick the gun up, A or X loads a shell. Gallery and sword unchanged. | Waiting for playtest. |
 
 ## Repo
 
@@ -42,13 +43,13 @@ NOTES.md       dated playtest log and decisions
 CLAUDE.md      how Claude works in this repo
 ```
 
-`vNN/src`: `main.js` (loop, input, moving, sign), `weapons.js` (sword, pistol, holsters, reload, recall), `targets.js` (dummies, cans, puffballs, physics, bullets), `forest.js` (scenery), `fx.js` (toon look, particles, trails, sound), `demo.js` (self-playing preview).
+`vNN/src`: `main.js` (loop, input, moving, sign), `weapons.js` (sword, pistols, shotgun, holsters, reload, recall), `targets.js` (dummies, cans, puffballs, physics, bullets), `forest.js` (scenery), `fx.js` (toon look, particles, trails, sound), `demo.js` (self-playing preview).
 
 No build step: plain ES modules.
 
 ## Testing
 
 ```
-python3 tests/page_check.py v02 40     # the self-playing preview in headless Chrome
-node tests/xr_check.mjs v02            # emulated Quest 3: draw, cut, throw, recall, holster, shoot, reload, gallery, turn, jump
+python3 tests/page_check.py v03 40     # the self-playing preview in headless Chrome
+node tests/xr_check.mjs v03            # emulated Quest 3: sword, both pistols, shotgun pump and load, gallery, turn, jump
 ```
