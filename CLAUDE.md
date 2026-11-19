@@ -30,6 +30,7 @@ Read `README.md` (north star, pillars, roadmap) and the top entry of `NOTES.md` 
 - Keep a clear lane between where you stand and the shooting targets; v01's first layout had a dummy blocking the cans.
 - A mechanic the world does not teach does not exist: v01's two-handed reload went unused. Prefer one button, or a gesture the scene shows.
 - Check every target's line from the start spot through gate pillars, poles and dummies (v02's gong first sat behind a pillar).
+- Things outside targets.js that can be hit (the bot, its orbs, its button) register spheres through `targets.addProvider`; blades, bullets, pellets and bursts then reach them with no extra code.
 - Sprites and instanced pools still cost draw calls and triangles when invisible by opacity or scale; hide them.
 
 ## Writing for Faisal

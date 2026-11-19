@@ -2,6 +2,32 @@
 
 Newest first.
 
+## 2026-11-19 · v03 playtest, and v04, the sparring grove
+
+**Faisal on v03.** A great improvement; enjoyed the weapons. Next:
+- Improve the area and scenery.
+- More weapons, a mix of projectiles and blades: dual short blades, and a projectile that can be sci-fi or fantasy, fun to wield.
+- A more dynamic opponent, something like a robot that spars with you and moves; switchable on and off.
+
+**v04 changes.** (Several things at once because Faisal asked for them together; each is self-contained so it can be cut on its own.)
+- Twin daggers in sheaths across the chest (seven holsters now). Short blades, the sword's cut rules, quicker swish, pink and mint trails, throwable (they stick) and recallable.
+- Star Caster at the small of the back: a brass hand cannon with a crystal. Hold the trigger to charge (0.9 s: rising hum, spinning rings, growing vibration, a chime when full), let go to launch a star that arcs and bursts. A tap fires a small quick star; a full charge bursts about 2.3 m wide, breaks most things twice and throws loose objects. No ammo; the charge is the limit.
+- The Sparring Bot, a hovering wood-and-brass automaton. Off by default, asleep on its dock behind you on the right. Hit or press the mushroom button by the sign to switch it on or off.
+  - It circles at 1.5 to 2.3 m. Melee: raises its baton (glows, rising whine, 0.8 s), then swings flat at head height or down diagonally. A blade across the baton parries it: big clang, it staggers. Otherwise you get a red flash and a thump in both hands.
+  - Ranged: aims its cannon arm (pink glow), fires a slow orb; three in a row when below half health. Dodge it, shoot it, or slash it hard to send it back for 5 damage.
+  - 24 health shown as beads around its middle. Bullets 1, pellets 1 each, bursts 3, a slow blade 1, a cutting blade 3, head hits double. Big hits stagger it. At zero it falls apart, and rebuilds after 5 s.
+- Scenery: a mossy cliff with a waterfall and pool, framed by the gate; a lily pond with reeds behind you; stone lanterns by the gate; ferns and bushes along the edge; butterflies, birds circling high, drifting mist.
+- The preview runs the bot so it can be seen; holstered weapons are hidden there.
+
+**Agent checks.** Emulated Quest 3: 57/57 (adds dagger draw, slash, throw, recall, sheathe; Star Caster draw, charged burst smashing a melon, tap shot, holster; bot button on, boot, parry, a hit landing on you, orb slashed back, knocked down, rebuilt, button off).
+- Bugs found and fixed: the bot's closest-point helper overwrote its own input, so baton hits could never land; its flat swing passed beside your head because it swings from an offset shoulder (swings now aim at your head when the strike starts, and it lunges to 0.85 m).
+- Draw calls: rose to about 260 with everything added; trimmed to about 145 to 180 (cans and puffballs batched, stumps and critter bases merged, outlines dropped on far or small things, fewer glows). v03 was about 140. Watch the frame rate.
+
+**Questions for the playtest.**
+- Sparring Bot: too easy, too hard, or fun? Can you read its attacks in time to parry?
+- Daggers and Star Caster: which is more fun, and does the charge feel good?
+- Does the clearing feel more alive? Does it still run smoothly?
+
 ## 2026-11-19 · v02 playtest, and v03, the arsenal
 
 **Faisal on v02.** Decent, but it can be more fun and satisfying. Dual-wielding pistols should be an option. Add a different kind of gun to explore other mechanics, and different reactions and feedback when firing.

@@ -296,6 +296,124 @@ s = await G(() => window.__game.weapons.shotgun.state);
 check(s === 'holstered', 'letting go over the left shoulder puts the shotgun away', s);
 await gripTo('left', [-0.25, 1.2, -0.35], 0.4); await gripTo('right', [0.25, 1.2, -0.35], 0.4); await fresh();
 
+// 6e. daggers: draw from the chest, cut, throw, put back
+if (await G(() => !!window.__game.weapons.daggerR)) {
+  await page.evaluate(() => window.__xr.position.set(1.5, 1.6, -0.25)); await wait(0.6);
+  const dpos = await G(() => { const p = window.__game.weapons.daggerR.mesh.position; return [p.x, p.y, p.z]; });
+  await K('right', { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+  await gripTo('right', dpos, 0.6);
+  const zc = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.right.pos); });
+  check(zc === 'chestR', 'right hand at the chest is in the dagger zone', zc);
+  await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+  s = await G(() => window.__game.weapons.daggerR.state); check(s === 'held', 'squeezing there draws a dagger', s); await fresh();
+  // a short fast slash, closer in than the sword
+  await gripTo('right', [1.5 + 0.45, 1.55, -0.25 - 0.55], 0.5);
+  await gripTo('right', [1.5 - 0.35, 1.05, -0.25 - 0.75], 0.12, { linear: true }); await wait(0.5);
+  L = await fresh(); check(L.some(l => /^(CUT|SLASH|HIT)/.test(l)), 'a dagger slash hits the dummy', L.join(' / ') || 'nothing');
+  await shot('06f-dagger');
+  const o4 = await gripOffset('right');
+  await gripTo('right', [1.5 + 0.25, 1.6, -0.1], 0.4);
+  await K('right', { to: [1.6 - o4[0], 1.45 - o4[1], -0.55 - o4[2]], dur: 0.07, linear: true });
+  await K('right', { to: [1.55 - o4[0], 1.42 - o4[1], -0.75 - o4[2]], dur: 0.05, linear: true, buttons: { squeeze: 0 } }); await settle(); await wait(0.8);
+  L = await fresh(); check(L.some(l => l.startsWith('THROW dagger')), 'a dagger can be thrown', L.join(' / '));
+  await K('right', { dur: 0.1, buttons: { squeeze: 1 } }); await K('right', { dur: 0.1, buttons: { trigger: 1 } }); await K('right', { dur: 0.1, buttons: { trigger: 0 } }); await settle(); await wait(0.9);
+  s = await G(() => window.__game.weapons.daggerR.state); check(s === 'held', 'and recalled', s);
+  const back = await G(() => { const w = window.__game.weapons, b = w.body; return [b.head.x + b.R.x * 0.11 + b.F.x * (0.13 - 0.08), b.head.y - 0.4, b.head.z + b.R.z * 0.11 + b.F.z * (0.13 - 0.08)]; });
+  await gripTo('right', back, 0.5); await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle(); await wait(0.2);
+  s = await G(() => window.__game.weapons.daggerR.state); check(s === 'holstered', 'letting go at the chest sheathes it', s);
+  await page.evaluate(() => window.__xr.position.set(0, 1.6, 0)); await wait(0.5); await fresh();
+
+  // 6f. the Star Caster: draw from the small of the back, charge, release, burst
+  const cpos = await G(() => { const w = window.__game.weapons, p = w.caster.mesh.localToWorld(w.caster.mesh.position.clone().set(0, -0.02, 0.03)); return [p.x, p.y, p.z]; });
+  await gripTo('right', cpos, 0.6);
+  const zb = await G(() => { const w = window.__game.weapons; return w.zoneOf(w.hands.right.pos); });
+  check(zb === 'backLow', 'right hand at the small of the back is in the Star Caster zone', zb);
+  await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+  s = await G(() => window.__game.weapons.caster.state); check(s === 'held', 'squeezing there draws the Star Caster', s);
+  await gripTo('right', [0.2, 1.35, -0.45], 0.5);
+  await aimAt('right', await G(() => { const c = window.__game.targets.kinds.melon.items[1].hc; return [c.x, c.y, c.z]; })); await wait(0.2); await fresh();
+  await K('right', { dur: 1.1, buttons: { trigger: 1 } }); await settle(); await shot('06g-charged');
+  await K('right', { dur: 0.1, buttons: { trigger: 0 } }); await settle(); await wait(1.2);
+  L = await fresh();
+  const shotL = L.find(l => l.startsWith('SHOT caster'));
+  check(!!shotL && L.some(l => l.startsWith('STARBURST')), 'hold, release: a star flies and bursts', L.join(' / '));
+  check(L.some(l => l.startsWith('SMASH melon')), 'the burst smashes the melon it was aimed at', L.join(' / '));
+  await K('right', { dur: 0.05, buttons: { trigger: 1 } }); await K('right', { dur: 0.1, buttons: { trigger: 0 } }); await settle(); await wait(0.8);
+  L = await fresh(); check(L.some(l => l.startsWith('SHOT caster')) && L.some(l => l.startsWith('STARBURST')), 'a quick tap fires a small star', L.join(' / '));
+  const lowAt = await G(() => { const w = window.__game.weapons, b = w.body; return [b.head.x - 0.04 * b.R.x + (-0.17 - 0.08) * b.F.x, b.hipY + 0.08, b.head.z - 0.04 * b.R.z + (-0.17 - 0.08) * b.F.z]; });
+  await K('right', { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+  await gripTo('right', lowAt, 0.5); await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle(); await wait(0.2);
+  s = await G(() => window.__game.weapons.caster.state); check(s === 'holstered', 'letting go at the small of the back puts it away', s);
+  await gripTo('right', [0.25, 1.2, -0.35], 0.4); await fresh();
+
+  // 6g. the Sparring Bot: press the button, it boots and comes for you
+  const btnTop = await G(() => { const b = window.__game.sparring.debug.btn; return [b.g.position.x, 0.93, b.g.position.z]; });
+  await gripTo('left', [btnTop[0], btnTop[1] + 0.15, btnTop[2]], 0.7);
+  await gripTo('left', [btnTop[0], btnTop[1] - 0.02, btnTop[2]], 0.25); await wait(0.3);
+  L = await fresh(); s = await G(() => window.__game.sparring.bot.on);
+  check(L.includes('BOT') && s === true, 'pressing the mushroom button switches the bot on', L.join(' / '));
+  await gripTo('left', [-0.25, 1.2, -0.35], 0.5); await wait(2.5);
+  s = await G(() => { const b = window.__game.sparring.bot; return { s: b.state, d: Math.hypot(b.pos.x, b.pos.z) }; });
+  check(['stalk', 'windup', 'strike', 'recover', 'aim'].includes(s.s), 'the bot boots and starts sparring', JSON.stringify(s));
+  await shot('06h-bot');
+  // a parry: the sword held across the path of its swing
+  const sw = await G(() => { const w = window.__game.weapons, p = w.sword.mesh.position; return [p.x, p.y, p.z]; });
+  await K('right', { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+  await gripTo('right', [0.16, 1.5, 0.14], 0.5); await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle(); await wait(0.1);
+  // freeze it in front of you and work out where its baton will be halfway through the swing
+  const plan = await G(() => {
+    const S = window.__game.sparring, b = S.bot, d = S.debug;
+    b.pos.set(0, 0, -0.85); b.yaw = 0; b.vel.set(0, 0, 0); b.state = 'stalk'; b.next = 99; b.hold = true; b.swing = d.SWINGS[0];
+    S.root.position.copy(b.pos); S.root.rotation.y = b.yaw; d.hull.position.y = 0.35; d.hull.rotation.set(0, 0, 0);
+    d.aimSwing(); d.batonArm.quaternion.copy(d.aimQ).multiply(d.SWINGS[0].m); S.root.updateMatrixWorld(true);
+    const a = d.batonArm.localToWorld(d.batonArm.position.clone().set(0, -0.73, 0));
+    return [a.x, a.y, a.z];
+  });
+  // turn the controller so the blade lies sideways, then put the blade's middle on that point
+  await K('right', { q: yawPitchQ(Math.PI / 2, 0), dur: 0.2 }); await settle(); await wait(0.1);
+  const bd = await G(() => { const s = window.__game.weapons.sword, h = window.__game.weapons.hands.right; s.mesh.updateMatrixWorld(); const m = s.mesh.localToWorld(s.mesh.position.clone().set(0, 0, -0.55)); return [m.x - h.pos.x, m.y - h.pos.y, m.z - h.pos.z]; });
+  await gripTo('right', [plan[0] - bd[0], plan[1] - bd[1], plan[2] - bd[2]], 0.4); await wait(0.1); await fresh();
+  await G(() => { const b = window.__game.sparring.bot; b.hold = false; b.state = 'windup'; b.t = 0.79; b.pos.set(0, 0, -0.85); });
+  await wait(0.6);
+  L = await fresh(); check(L.includes('PARRY'), 'a blade across the baton parries the swing', L.join(' / ') || 'nothing');
+  await shot('06i-parry');
+  // no blade in the way: the swing lands
+  await gripTo('right', [0.5, 0.9, 0.2], 0.4); await fresh();
+  await G(() => { const S = window.__game.sparring, b = S.bot; b.pos.set(0, 0, -1.05); b.yaw = 0; b.swing = S.debug.SWINGS[0]; b.state = 'windup'; b.t = 0.79; });
+  await wait(0.6);
+  L = await fresh(); check(L.some(l => l.startsWith('PLAYERHIT')), 'with nothing in the way, the baton hits you', L.join(' / ') || 'nothing');
+  // an orb: slashed hard, it flies back and hurts the bot
+  await G(() => { const S = window.__game.sparring, b = S.bot; b.pos.set(0, 0, -2.2); b.state = 'aim'; b.t = S.BOT.aim - 0.01; b.volley = 1; });
+  await wait(0.15);
+  const orbRes = await G(() => {
+    const S = window.__game.sparring, T = window.__game.targets, o = S.orbs.find(x => x.on); if (!o) return 'no orb';
+    const h = T.spheres().find(x => x.id === 'orb' + o.i); if (!h) return 'orb not hittable';
+    return T.hit(h, o.p.clone(), o.p.clone().set(0, 0, -6), 'blade');
+  });
+  await wait(1.2);
+  L = await fresh(); check(orbRes === 'cut' && L.includes('DEFLECT') && L.some(l => l.startsWith('BOTHURT')), 'a hard slash sends its orb back into it', `${orbRes} · ${L.join(' / ')}`);
+  // knock it down with the pistol, then watch it rebuild
+  await gripTo('right', [0.16, 1.5, 0.14], 0.5); await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle();
+  await G(() => { const S = window.__game.sparring, b = S.bot; b.hp = 1; b.pos.set(0, 0, -2.4); b.state = 'stalk'; b.next = 99; b.hold = true; S.debug.hull.rotation.set(0, 0, 0); S.debug.hull.position.y = 0.35; });
+  const hp2 = await G(() => { const p = window.__game.weapons.pistolR.mesh.position; return [p.x, p.y, p.z]; });
+  await K('right', { q: [0, 0, 0, 1], dur: 0.2 }); await settle();
+  await gripTo('right', [hp2[0], hp2[1] + 0.02, hp2[2]], 0.5); await K('right', { dur: 0.12, buttons: { squeeze: 1 } }); await settle();
+  await gripTo('right', [0.2, 1.35, -0.45], 0.4);
+  await aimAt('right', await G(() => { const S = window.__game.sparring; S.debug.hull.updateMatrixWorld(true); const c = S.debug.hull.localToWorld(S.debug.hull.position.clone().set(0, 0.6, 0)); return [c.x, c.y, c.z]; }));
+  await fresh(); await fireOnce(); await G(() => { window.__game.sparring.bot.hold = false; }); await wait(0.5);
+  L = await fresh(); check(L.includes('BOTDOWN'), 'when its health runs out it falls apart', L.join(' / '));
+  await shot('06j-bot-down');
+  await wait(7.5); L = await fresh();
+  check(L.includes('BOTUP'), 'and rebuilds itself', L.join(' / '));
+  // switch it off again
+  await gripTo('left', [btnTop[0], btnTop[1] + 0.15, btnTop[2]], 0.6); await gripTo('left', [btnTop[0], btnTop[1] - 0.02, btnTop[2]], 0.25); await wait(0.3);
+  s = await G(() => window.__game.sparring.bot); check(s.on === false && (s.state === 'return' || s.state === 'off'), 'pressing the button again sends it back to its dock', JSON.stringify({ on: s.on, state: s.state }));
+  await gripTo('left', [-0.25, 1.2, -0.35], 0.4);
+  const hpR = await G(() => { const w = window.__game.weapons, b = w.body; return [b.head.x + b.R.x * 0.25 + b.F.x * (0.02 - 0.08), b.hipY + 0.06, b.head.z + b.R.z * 0.25 + b.F.z * (0.02 - 0.08)]; });
+  await K('right', { q: [0, 0, 0, 1], dur: 0.2 }); await settle(); await gripTo('right', hpR, 0.5); await K('right', { dur: 0.1, buttons: { squeeze: 0 } }); await settle();
+  await gripTo('right', [0.25, 1.2, -0.35], 0.4); await fresh();
+}
+
 // 7. snap turn and a jump
 const yaw0 = (await st()).rig.yaw;
 await K('right', { dur: 0.1, axes: [1, 0] }); await K('right', { dur: 0.2, axes: [0, 0] }); await settle(); await wait(0.2);

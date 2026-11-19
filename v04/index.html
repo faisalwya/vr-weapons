@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Weapons Sandbox VR · draft v04 · the sparring grove</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231b1622'/%3E%3Cpath d='M8 25 L22 7 L25 9 L11 27 Z' fill='%23c8d0dc'/%3E%3Crect x='6' y='22' width='9' height='3' transform='rotate(-52 10 23)' fill='%23d9a441'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas, one painted card pinned to the bottom (left on wide screens). Hidden in the headset. */
+:root{--paper:#f1e6cf;--ink:#1b1622;--red:#d8432a;--moss:#3f6230;
+  --display:"Bangers",Impact,"Arial Black",sans-serif;--body:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{background:#2a3a2a;color:var(--ink);font-family:var(--body);overflow:hidden;}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;}
+#card{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100% - 28px));max-height:calc(100% - 28px);overflow:auto;
+  background:var(--paper);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink);padding:14px 16px 16px;}
+body.in-vr #card{display:none;}
+.eyebrow{margin:0 0 4px;font-weight:700;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);}
+h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(28px,7vw,40px);line-height:1;letter-spacing:.02em;}
+#status{margin:8px 0 0;font-size:17px;line-height:1.3;font-weight:500;color:#2a2430;}
+dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:10px 0 0;font-size:16px;line-height:1.25;}
+dt{font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:14px;padding-top:1px;color:var(--moss);}
+dd{margin:0;color:#2a2430;}
+#enter{margin-top:12px;width:100%;height:48px;font:400 24px var(--display);letter-spacing:.08em;
+  background:var(--ink);color:var(--paper);border:2px solid var(--ink);box-shadow:3px 3px 0 var(--red);cursor:pointer;}
+#enter:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--red);}
+#enter:focus-visible{outline:3px solid var(--red);outline-offset:3px;}
+@media (min-aspect-ratio:1/1){#card{left:calc(16px + env(safe-area-inset-left,0px));transform:none;width:min(390px,44vw);}}
+@media (max-height:560px){dl{display:none;}}
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.js","cannon-es":"../vendor/cannon-es.js"}}</script>
+</head>
+<body>
+<canvas id="c" aria-label="A forest clearing late in the afternoon with straw training dummies, tin cans on a log and puffball mushrooms"></canvas>
+<section id="card">
+  <p class="eyebrow">Draft v04 · Daggers, Star Caster, Sparring Bot</p>
+  <h1>Weapons Sandbox VR</h1>
+  <p id="status">This screen is a self-playing preview. Open this link in the Quest browser to play it yourself.</p>
+  <dl>
+    <dt>Sword</dt><dd>Reach over your right shoulder and squeeze grip to draw. Swing hard to cut; throw it and it can stick.</dd>
+    <dt>Pistol</dt><dd>Right hip. Trigger fires. A or X drops the magazine; take a fresh one from your left hip and push it up into the grip.</dd>
+    <dt>Put away</dt><dd>Let go at the holster. Anywhere else, it drops or flies; it finds its way home.</dd>
+    <dt>Recall</dt><dd>Empty hand: hold grip and pull the trigger.</dd>
+    <dt>Move</dt><dd>Left stick forward to aim a jump, release to land. Right stick turns.</dd>
+  </dl>
+  <button id="enter" type="button" hidden>Enter VR</button>
+</section>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
